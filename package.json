@@ -1,6 +1,6 @@
 {
   "name": "claude-ace",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Show a pretty terminal summary of your local Claude Code session logs — token totals, top models, event types — with a hydration animation.",
   "type": "module",
   "bin": {
