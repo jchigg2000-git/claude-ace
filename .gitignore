@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code local working state (worktrees, plans, etc.)
 .claude/
+
+# npm lockfile — published library; install tree is not pinned in-repo
+package-lock.json
