@@ -1,5 +1,6 @@
 import { style, termWidth, box, padRight, padLeft, visualLength } from './style.js';
 import { animate, easeOutCubic, isAnimatable } from './animate.js';
+import { estimateCost, formatUSD, PRICES_AS_OF } from './pricing.js';
 
 const fmt = (n) => new Intl.NumberFormat('en-US').format(n || 0);
 const pct = (num, denom) => (denom > 0 ? `${((num / denom) * 100).toFixed(1)}%` : '0%');
@@ -14,8 +15,14 @@ export function summarizeLocal(events) {
     cacheRead += e.cache_read_tokens || 0;
     cacheCreate += e.cache_creation_tokens || 0;
     if (e.model) {
-      const m = models.get(e.model) || { count: 0, tokens: 0 };
+      const m = models.get(e.model) || {
+        count: 0, tokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreate: 0,
+      };
       m.count++;
+      m.input += e.input_tokens || 0;
+      m.output += e.output_tokens || 0;
+      m.cacheRead += e.cache_read_tokens || 0;
+      m.cacheCreate += e.cache_creation_tokens || 0;
       m.tokens += (e.input_tokens || 0) + (e.output_tokens || 0) + (e.cache_creation_tokens || 0);
       models.set(e.model, m);
     }
@@ -57,7 +64,14 @@ function scaleLocal(local, t) {
     models: new Map(
       [...(local.models || new Map())].map(([k, v]) => [
         k,
-        { count: Math.round(v.count * t), tokens: Math.round(v.tokens * t) },
+        {
+          count: Math.round(v.count * t),
+          tokens: Math.round(v.tokens * t),
+          input: Math.round((v.input || 0) * t),
+          output: Math.round((v.output || 0) * t),
+          cacheRead: Math.round((v.cacheRead || 0) * t),
+          cacheCreate: Math.round((v.cacheCreate || 0) * t),
+        },
       ]),
     ),
     eventTypes: new Map(
@@ -132,6 +146,48 @@ function eventTypesBlock(width, local, barScale = 1) {
   }).join('\n');
 }
 
+function costBlock(width, local, top = 8) {
+  const { rows, total, unknownModels } = estimateCost(local);
+  if (rows.length === 0) return '  ' + style.dim('(no model data)');
+
+  const labelW = 26;
+  const valW = 14;
+  const shown = rows.slice(0, top);
+  const lines = [];
+  lines.push('  ' + style.gray(box.tl + hr(labelW) + box.tt + hr(valW) + box.tr));
+  for (const r of shown) {
+    const value = r.known
+      ? style.brightYellow(formatUSD(r.cost))
+      : style.dim('(no price)');
+    lines.push(
+      '  ' +
+        style.gray(box.v) +
+        ' ' + padRight(r.model, labelW - 1) +
+        style.gray(box.v) + ' ' +
+        padLeft(value, valW - 2) + ' ' +
+        style.gray(box.v),
+    );
+  }
+  lines.push('  ' + style.gray(box.lt + hr(labelW) + box.cross + hr(valW) + box.rt));
+  lines.push(
+    '  ' +
+      style.gray(box.v) +
+      ' ' + padRight(style.bold('total'), labelW - 1) +
+      style.gray(box.v) + ' ' +
+      padLeft(style.bold(style.brightYellow(formatUSD(total))), valW - 2) + ' ' +
+      style.gray(box.v),
+  );
+  lines.push('  ' + style.gray(box.bl + hr(labelW) + box.bt + hr(valW) + box.br));
+
+  const notes = [`estimates only · prices as of ${PRICES_AS_OF}`];
+  if (rows.length > shown.length) notes.push(`${rows.length - shown.length} more model(s) not shown`);
+  if (unknownModels.length > 0) {
+    notes.push(`${unknownModels.length} unpriced model(s) counted as $0`);
+  }
+  lines.push('  ' + style.dim(notes.join(' · ')));
+  return lines.join('\n');
+}
+
 export async function renderAnimatedReport(args) {
   if (!isAnimatable()) {
     process.stdout.write(renderReport(args));
@@ -167,6 +223,13 @@ export async function renderAnimatedReport(args) {
     render: (t) => eventTypesBlock(w, local, easeOutCubic(t)) + '\n',
   });
 
+  process.stdout.write('\n' + sectionHeader('Estimated cost (USD)') + '\n');
+  await animate({
+    steps: 24,
+    fps: 30,
+    render: (t) => costBlock(w, scaleLocal(local, easeOutCubic(t))) + '\n',
+  });
+
   process.stdout.write('\n');
 }
 
@@ -190,6 +253,9 @@ export function renderReport({ scan, local, packageVersion }) {
   sections.push('');
   sections.push(sectionHeader('Event types'));
   sections.push(eventTypesBlock(w, local));
+  sections.push('');
+  sections.push(sectionHeader('Estimated cost (USD)'));
+  sections.push(costBlock(w, local));
   sections.push('');
 
   return sections.join('\n');
