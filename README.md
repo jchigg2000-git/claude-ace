@@ -25,6 +25,12 @@ claude-ace --no-animate    # skip the animation
 claude-ace --help
 ```
 
+## Test
+
+```bash
+npm test
+```
+
 ## Cost estimation
 
 The report includes an **Estimated cost (USD)** section that dollarizes the
