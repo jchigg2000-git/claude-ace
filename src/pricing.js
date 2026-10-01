@@ -2,8 +2,9 @@
 //
 // Rates are US dollars per **million** tokens, for the standard (non-batch)
 // Claude API tier. Cache read/write rates are derived from the base input
-// rate with the documented multipliers rather than stored per model:
-//   - cache read  ≈ 0.10× base input  (tokens served from an existing cache)
+// rate with the documented multipliers unless a model lists its own rate:
+//   - cache read  ≈ 0.10× base input  (tokens served from an existing cache);
+//     models with a published cache-read price carry it as `cacheRead`
 //   - cache write ≈ 1.25× base input  (5-minute ephemeral cache creation)
 //
 // These are ESTIMATES. The table is a point-in-time snapshot (see PRICES_AS_OF)
@@ -11,20 +12,26 @@
 // including older or unrecognized ids — is priced at $0 and flagged, so an
 // unknown model never inflates the total with a guessed rate.
 
-export const PRICES_AS_OF = '2026-06-24';
+export const PRICES_AS_OF = '2026-09-25';
 
 export const CACHE_READ_MULTIPLIER = 0.1;
 export const CACHE_WRITE_MULTIPLIER = 1.25;
 
-// input / output USD per 1M tokens. Keys are canonical model ids (lowercase).
+// input / output (and optional cacheRead) USD per 1M tokens. Keys are
+// canonical model ids (lowercase).
 const PRICING = {
+  'claude-fable-5-1':  { input: 10, output: 50, cacheRead: 0.25 },
+  'claude-mythos-5-1': { input: 10, output: 50, cacheRead: 0.25 },
   'claude-fable-5':    { input: 10, output: 50 },
   'claude-mythos-5':   { input: 10, output: 50 },
+  'claude-opus-5-5':   { input: 4,  output: 20, cacheRead: 0.2 },
+  'claude-opus-5':     { input: 5,  output: 25 },
   'claude-opus-4-8':   { input: 5,  output: 25 },
   'claude-opus-4-7':   { input: 5,  output: 25 },
   'claude-opus-4-6':   { input: 5,  output: 25 },
   'claude-opus-4-5':   { input: 5,  output: 25 },
-  'claude-sonnet-5':   { input: 3,  output: 15 },
+  'claude-sonnet-5-5': { input: 2,  output: 10, cacheRead: 0.2 },
+  'claude-sonnet-5':   { input: 2,  output: 10 },
   'claude-sonnet-4-6': { input: 3,  output: 15 },
   'claude-sonnet-4-5': { input: 3,  output: 15 },
   'claude-haiku-4-5':  { input: 1,  output: 5 },
@@ -32,11 +39,11 @@ const PRICING = {
 
 // Bare aliases that show up in logs → canonical id (latest of that family).
 const ALIASES = {
-  opus: 'claude-opus-4-8',
-  sonnet: 'claude-sonnet-5',
+  opus: 'claude-opus-5-5',
+  sonnet: 'claude-sonnet-5-5',
   haiku: 'claude-haiku-4-5',
-  fable: 'claude-fable-5',
-  mythos: 'claude-mythos-5',
+  fable: 'claude-fable-5-1',
+  mythos: 'claude-mythos-5-1',
 };
 
 // Reduce a raw model string from the logs to a canonical pricing key.
@@ -59,7 +66,7 @@ export function normalizeModel(model) {
   return m;
 }
 
-// Return { input, output } USD-per-1M rates for a model, or null if unknown.
+// Return { input, output[, cacheRead] } USD-per-1M rates for a model, or null if unknown.
 export function priceForModel(model) {
   const key = normalizeModel(model);
   return Object.hasOwn(PRICING, key) ? PRICING[key] : null;
@@ -71,7 +78,7 @@ function costForTokens(rate, { input = 0, output = 0, cacheRead = 0, cacheCreate
   return (
     per(input, rate.input) +
     per(output, rate.output) +
-    per(cacheRead, rate.input * CACHE_READ_MULTIPLIER) +
+    per(cacheRead, rate.cacheRead ?? rate.input * CACHE_READ_MULTIPLIER) +
     per(cacheCreate, rate.input * CACHE_WRITE_MULTIPLIER)
   );
 }
