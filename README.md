@@ -31,6 +31,14 @@ claude-ace --help
 npm test
 ```
 
+## What gets counted
+
+Every `*.jsonl` log under `~/.claude/projects/`, including the subagent and
+workflow-agent logs nested under each session, for the last 30 days. Claude
+Code writes one log line per content block of a response and repeats that
+response's usage on each line, so token totals count each response once (by
+message id) rather than once per line.
+
 ## Cost estimation
 
 The report includes an **Estimated cost (USD)** section that dollarizes the
@@ -38,8 +46,9 @@ token totals per model — input, output, cache-read, and cache-creation tokens
 multiplied by that model's published rates, with a grand total.
 
 These are estimates from a built-in, point-in-time pricing table for the
-current Claude model families (cache-read is priced at 0.1× and cache-creation
-at 1.25× the base input rate). Models the table doesn't recognize are shown as
+current Claude model families (cache-creation is priced at 1.25× the base input
+rate; cache-read uses the model's published rate where the table has one, else
+0.1× the base input rate). Models the table doesn't recognize are shown as
 `(no price)` and counted as `$0` rather than guessed, so an unknown model never
 inflates the total. Rates live in [`src/pricing.js`](src/pricing.js).
 

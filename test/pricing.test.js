@@ -16,10 +16,10 @@ test('normalizeModel strips context tags and dated snapshots', () => {
 });
 
 test('normalizeModel resolves bare aliases and parentheticals', () => {
-  assert.equal(normalizeModel('opus'), 'claude-opus-4-8');
-  assert.equal(normalizeModel('sonnet'), 'claude-sonnet-5');
+  assert.equal(normalizeModel('opus'), 'claude-opus-5-5');
+  assert.equal(normalizeModel('sonnet'), 'claude-sonnet-5-5');
   assert.equal(normalizeModel('haiku'), 'claude-haiku-4-5');
-  assert.equal(normalizeModel('fable'), 'claude-fable-5');
+  assert.equal(normalizeModel('fable'), 'claude-fable-5-1');
   assert.equal(normalizeModel('Opus 4.8 (1M)'), 'opus 4.8');
 });
 
@@ -33,7 +33,9 @@ test('normalizeModel is safe on junk input', () => {
 test('priceForModel returns rates for known models, null otherwise', () => {
   assert.deepEqual(priceForModel('claude-opus-4-8'), { input: 5, output: 25 });
   assert.deepEqual(priceForModel('claude-opus-4-8[1m]'), { input: 5, output: 25 });
-  assert.deepEqual(priceForModel('claude-sonnet-5'), { input: 3, output: 15 });
+  assert.deepEqual(priceForModel('claude-sonnet-5'), { input: 2, output: 10 });
+  assert.deepEqual(priceForModel('claude-opus-5-5[1m]'), { input: 4, output: 20, cacheRead: 0.2 });
+  assert.deepEqual(priceForModel('claude-fable-5-1'), { input: 10, output: 50, cacheRead: 0.25 });
   assert.equal(priceForModel('<synthetic>'), null);
   assert.equal(priceForModel('gpt-4'), null);
 });
@@ -54,6 +56,18 @@ test('estimateCost computes input/output/cache costs with the documented multipl
   assert.equal(rows[0].known, true);
   assert.ok(Math.abs(total - expected) < 1e-9, `total ${total} ≈ ${expected}`);
   assert.deepEqual(unknownModels, []);
+});
+
+test('estimateCost uses a model\'s published cache-read rate over the multiplier', () => {
+  const local = {
+    models: new Map([
+      ['claude-opus-5-5', { input: 0, output: 0, cacheRead: 1_000_000, cacheCreate: 1_000_000 }],
+    ]),
+  };
+  const { total } = estimateCost(local);
+  // 1M cacheRead @ $0.20 (published) + 1M cacheCreate @ 4*1.25
+  const expected = 0.2 + 4 * CACHE_WRITE_MULTIPLIER;
+  assert.ok(Math.abs(total - expected) < 1e-9, `total ${total} ≈ ${expected}`);
 });
 
 test('estimateCost flags unknown models as $0 without inflating the total', () => {

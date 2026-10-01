@@ -8,6 +8,24 @@ it leaves the `0.x` zone.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Subagent logs are now counted.** The scan walks session directories
+  recursively, picking up `subagents/` and `subagents/workflows/` logs that a
+  one-level scan missed.
+- **Token totals no longer multiply per content block.** Usage repeated across
+  the lines of one API response is counted once per message id (keeping the
+  final output count), instead of once per line.
+- **Pricing table refreshed to 2026-09-25 rates.** Adds Fable 5.1, Mythos 5.1,
+  Opus 5.5, Opus 5 and Sonnet 5.5; corrects Sonnet 5 to $2 / $10; uses published
+  cache-read rates where they differ from 0.1× input; bare `opus` / `sonnet` /
+  `fable` / `mythos` aliases point at the newest model of each family.
+
+### Changed
+
+- Log files last modified before the 30-day window are skipped without being
+  read, so "files scanned" now counts only files that could hold reported events.
+
 ### Added
 
 - **Estimated cost (USD) section.** The report now dollarizes token totals per
