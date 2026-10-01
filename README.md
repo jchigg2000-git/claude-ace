@@ -39,6 +39,9 @@ Code writes one log line per content block of a response and repeats that
 response's usage on each line, so token totals count each response once (by
 message id) rather than once per line.
 
+A large log directory can take a while to scan; on an interactive terminal a
+progress line is shown on stderr (never stdout) and cleared before the report.
+
 ## Cost estimation
 
 The report includes an **Estimated cost (USD)** section that dollarizes the

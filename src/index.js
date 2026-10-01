@@ -6,6 +6,7 @@ import { paths } from './config.js';
 import { collectNewEvents } from './collect.js';
 import { summarizeLocal, renderReport, renderAnimatedReport } from './display.js';
 import { isAnimatable } from './animate.js';
+import { createScanProgress } from './progress.js';
 
 async function readPackageVersion() {
   const here = path.dirname(fileURLToPath(import.meta.url));
@@ -32,7 +33,17 @@ Environment:
 }
 
 async function collectAndSummarize() {
-  const collected = await collectNewEvents({ projectsDir: paths.claudeProjects, state: {} });
+  const progress = createScanProgress();
+  let collected;
+  try {
+    collected = await collectNewEvents({
+      projectsDir: paths.claudeProjects,
+      state: {},
+      onProgress: progress.onProgress,
+    });
+  } finally {
+    progress.finish();
+  }
   const local = summarizeLocal(collected.events);
   return {
     scannedFiles: collected.scannedFiles,
