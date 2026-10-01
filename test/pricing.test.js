@@ -94,3 +94,15 @@ test('formatUSD renders cents and sub-cent amounts', () => {
   assert.equal(formatUSD(1234.5), '$1,234.50');
   assert.equal(formatUSD(0.0025), '$0.0025');
 });
+
+test('prototype property names are not treated as models', () => {
+  assert.equal(normalizeModel('constructor'), 'constructor');
+  assert.equal(priceForModel('constructor'), null);
+  assert.equal(priceForModel('toString'), null);
+  const { rows, total, unknownModels } = estimateCost({
+    models: new Map([['constructor', { input: 1000, output: 1000, cacheRead: 0, cacheCreate: 0 }]]),
+  });
+  assert.equal(total, 0);
+  assert.equal(rows[0].known, false);
+  assert.deepEqual(unknownModels, ['constructor']);
+});

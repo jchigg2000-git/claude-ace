@@ -50,18 +50,19 @@ export function normalizeModel(model) {
   // Drop parenthetical descriptions: "opus 4.8 (1m)" → "opus 4.8".
   m = m.replace(/\([^)]*\)/g, '');
   m = m.trim();
-  if (ALIASES[m]) return ALIASES[m];
+  // Own-property checks only: ids like "constructor" must not resolve through
+  // Object.prototype and masquerade as a priced model.
+  if (Object.hasOwn(ALIASES, m)) return ALIASES[m];
   // Drop a trailing dated snapshot: "-20251001".
   const dated = m.replace(/-\d{8}$/, '');
-  if (PRICING[dated]) return dated;
-  if (PRICING[m]) return m;
+  if (Object.hasOwn(PRICING, dated)) return dated;
   return m;
 }
 
 // Return { input, output } USD-per-1M rates for a model, or null if unknown.
 export function priceForModel(model) {
   const key = normalizeModel(model);
-  return PRICING[key] || null;
+  return Object.hasOwn(PRICING, key) ? PRICING[key] : null;
 }
 
 // Cost in USD for one model's token breakdown given its rates.

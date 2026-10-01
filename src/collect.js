@@ -28,7 +28,12 @@ export async function listSessionFiles(projectsDir) {
   for (const entry of projectDirs) {
     if (!entry.isDirectory()) continue;
     const dir = path.join(projectsDir, entry.name);
-    const inner = await readdir(dir, { withFileTypes: true });
+    let inner;
+    try {
+      inner = await readdir(dir, { withFileTypes: true });
+    } catch {
+      continue; // unreadable or vanished project dir — don't abort the whole scan
+    }
     for (const f of inner) {
       if (f.isFile() && f.name.endsWith('.jsonl')) {
         files.push(path.join(dir, f.name));
@@ -129,10 +134,4 @@ export async function collectNewEvents({ projectsDir, state }) {
   }
 
   return { events, newCursors, scannedFiles, totalFiles: files.length };
-}
-
-export function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
 }
