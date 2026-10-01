@@ -125,7 +125,7 @@ function makeUsageDeduper() {
   };
 }
 
-export async function collectNewEvents({ projectsDir, state }) {
+export async function collectNewEvents({ projectsDir, state, onProgress }) {
   const files = await listSessionFiles(projectsDir);
   const events = [];
   const dedupeUsage = makeUsageDeduper();
@@ -133,8 +133,11 @@ export async function collectNewEvents({ projectsDir, state }) {
   // window holds no event the window would keep — skip reading it.
   const oldestMs = Date.now() - MAX_PAST_DAYS * 24 * 60 * 60 * 1000;
   const newCursors = {};
-  let scannedFiles = 0;
 
+  // Pass 1 — decide which files need reading (cheap: stat only), so progress
+  // can be reported against the real amount of work.
+  const pending = [];
+  let bytesTotal = 0;
   for (const file of files) {
     let st;
     try {
@@ -143,16 +146,18 @@ export async function collectNewEvents({ projectsDir, state }) {
       continue;
     }
     const cursor = state[file] || { lastUuid: null, mtimeMs: 0 };
-    if (st.mtimeMs <= cursor.mtimeMs && cursor.lastUuid) {
+    if ((st.mtimeMs <= cursor.mtimeMs && cursor.lastUuid) || st.mtimeMs < oldestMs) {
       newCursors[file] = cursor;
       continue;
     }
-    if (st.mtimeMs < oldestMs) {
-      newCursors[file] = cursor;
-      continue;
-    }
-    scannedFiles++;
+    pending.push({ file, st, cursor });
+    bytesTotal += st.size;
+  }
 
+  // Pass 2 — read them.
+  let bytesDone = 0;
+  let filesDone = 0;
+  for (const { file, st, cursor } of pending) {
     const fileEvents = [];
     let seenLastUuid = cursor.lastUuid == null;
     let lastEventUuid = cursor.lastUuid;
@@ -180,7 +185,14 @@ export async function collectNewEvents({ projectsDir, state }) {
     for (const ev of fileEvents) dedupeUsage(ev);
     events.push(...fileEvents);
     newCursors[file] = { lastUuid: lastEventUuid, mtimeMs: st.mtimeMs };
+    bytesDone += st.size;
+    onProgress?.({
+      filesDone: ++filesDone,
+      filesTotal: pending.length,
+      bytesDone,
+      bytesTotal,
+    });
   }
 
-  return { events, newCursors, scannedFiles, totalFiles: files.length };
+  return { events, newCursors, scannedFiles: pending.length, totalFiles: files.length };
 }

@@ -33,6 +33,10 @@ it leaves the `0.x` zone.
 
 ### Added
 
+- **Scan progress.** A full scan of a busy `~/.claude/projects` takes many seconds
+  and used to print nothing until it finished. On an interactive terminal a
+  transient "scanning session logs… N%" line now shows on stderr and is erased
+  before the report; piped or redirected runs are unchanged.
 - **Estimated cost (USD) section.** The report now dollarizes token totals per
   model — input, output, cache-read (0.1× input), and cache-creation (1.25×
   input) — with a grand total, using a built-in point-in-time pricing table for
