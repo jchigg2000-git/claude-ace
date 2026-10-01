@@ -5,6 +5,18 @@ import { estimateCost, formatUSD, PRICES_AS_OF } from './pricing.js';
 const fmt = (n) => new Intl.NumberFormat('en-US').format(n || 0);
 const pct = (num, denom) => (denom > 0 ? `${((num / denom) * 100).toFixed(1)}%` : '0%');
 
+// Fit a label into exactly `width` visible columns: pad short ones, cut long
+// ones with an ellipsis so a long model id can never push a table border out.
+function fit(label, width) {
+  const s = String(label);
+  return s.length > width ? s.slice(0, Math.max(0, width - 1)) + '…' : padRight(s, width);
+}
+
+// Label column width for a list of names: wide enough for the longest one,
+// within [min, max].
+const labelWidth = (names, min, max) =>
+  Math.max(min, Math.min(max, Math.max(0, ...names.map((n) => String(n).length))));
+
 export function summarizeLocal(events) {
   let input = 0, output = 0, cacheRead = 0, cacheCreate = 0;
   const models = new Map();
@@ -111,7 +123,11 @@ function modelsBlock(width, local, top = 5, barScale = 1) {
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, top);
   if (entries.length === 0) return '  ' + style.dim('(no model data)');
-  const totalEvents = entries.reduce((n, [, m]) => n + m.count, 0);
+  // Share of ALL model events, not just the rows shown, so the percentages mean
+  // the same thing whether or not the long tail is cut off.
+  let totalEvents = 0;
+  for (const m of local.models.values()) totalEvents += m.count;
+  const nameW = labelWidth(entries.map(([name]) => name), 22, 30);
   const maxBar = Math.max(20, Math.min(40, width - 60));
   const max = entries[0][1].count;
   return entries.map(([name, m]) => {
@@ -120,7 +136,7 @@ function modelsBlock(width, local, top = 5, barScale = 1) {
     const bar = style.brightGreen('█'.repeat(filled)) + style.gray('░'.repeat(maxBar - filled));
     return (
       '    ' +
-      padRight(name, 22) + ' ' +
+      fit(name, nameW) + ' ' +
       padLeft(fmt(m.count) + ' ev', 12) + '  ' +
       bar + '  ' +
       padLeft(pct(m.count, totalEvents), 6)
@@ -150,9 +166,9 @@ function costBlock(width, local, top = 8) {
   const { rows, total, unknownModels } = estimateCost(local);
   if (rows.length === 0) return '  ' + style.dim('(no model data)');
 
-  const labelW = 26;
-  const valW = 14;
   const shown = rows.slice(0, top);
+  const labelW = labelWidth(shown.map((r) => r.model), 24, 40) + 2;
+  const valW = 14;
   const lines = [];
   lines.push('  ' + style.gray(box.tl + hr(labelW) + box.tt + hr(valW) + box.tr));
   for (const r of shown) {
@@ -162,7 +178,7 @@ function costBlock(width, local, top = 8) {
     lines.push(
       '  ' +
         style.gray(box.v) +
-        ' ' + padRight(r.model, labelW - 1) +
+        ' ' + fit(r.model, labelW - 1) +
         style.gray(box.v) + ' ' +
         padLeft(value, valW - 2) + ' ' +
         style.gray(box.v),

@@ -21,6 +21,11 @@ it leaves the `0.x` zone.
   cache-read rates where they differ from 0.1× input; bare `opus` / `sonnet` /
   `fable` / `mythos` aliases point at the newest model of each family.
 
+- **Report layout.** A long model id (such as a dated snapshot) no longer pushes
+  the cost table's border out of line; label columns size to the longest name and
+  cut absurdly long ids with an ellipsis. "Top models" percentages are now each
+  model's share of all model events, not of the five rows shown.
+
 ### Changed
 
 - Log files last modified before the 30-day window are skipped without being
